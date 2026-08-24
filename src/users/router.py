@@ -27,11 +27,11 @@ async def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@auth_router.post("/register")
+@auth_router.post("/register", status_code=201)
 async def register(user_data: UserCreateSchema, db: AsyncSession = Depends(get_session)):
     existing = await db.execute(select(User).where(User.username == user_data.username))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username aready registered")
+        raise HTTPException(status_code=400, detail="Username already registered")
     hashed = get_password_hash(user_data.password)
     new_user = User(
         username=user_data.username, 
