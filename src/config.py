@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,5 +24,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+aiosqlite:///./database.db"
     sql_echo: bool = False
+
+    secret_key: str = Field("CHANGEME", env="SECRET_KEY")
+    algorithm: str = Field("HS256", env="ALGORITHM")
+    access_token_expire_minutes: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
 
 settings = Settings()
