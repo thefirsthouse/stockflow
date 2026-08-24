@@ -24,4 +24,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./database.db"
     sql_echo: bool = False
 
+    secret_key: str = "change-me-in-prod"
+    algorithm: str = "HS256"
+    acces_token_expire_minutes: int = 30
+
 settings = Settings()

@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from config import settings
 from database import engine, Base
+from users.router import auth_router
 
 
 @asynccontextmanager
@@ -27,6 +28,8 @@ app = FastAPI(
     docs_url="/docs" if settings.app_env == "development" else None,
     lifespan=lifespan,
 )
+
+app.include_router(auth_router)
 
 
 if __name__ == "__main__":
