@@ -24,7 +24,6 @@ class Base(DeclarativeBase):
 
 
 class ChoiceType(types.TypeDecorator):
-    class ChoiceType(types.TypeDecorator):
     """
     SQLAlchemy type that stores a string key in the database but returns
     its corresponding human-readable value in Python.
@@ -33,15 +32,22 @@ class ChoiceType(types.TypeDecorator):
     """
 
     impl = types.String
+    cache_ok = True
 
     def __init__(self, choices, **kw):
         self.choices = dict(choices)
-        super(ChoiceType, self).__init__(**kw)
-    
+        super().__init__(**kw)
 
     def process_bind_param(self, value, dialect):
-        return [k for k, v in self.choices.itertimes() if v == value][0]
-    
+        if value is None:
+            return None
+        if value in self.choices:
+            return value
+        return next(
+            key for key, display_value in self.choices.items() if display_value == value
+        )
 
     def process_result_value(self, value, dialect):
+        if value is None:
+            return None
         return self.choices[value]
