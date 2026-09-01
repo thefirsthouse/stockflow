@@ -22,6 +22,15 @@ class Warehouse(Base):
     location: Mapped[str] = mapped_column(String)
 
 
+class StockItem(Base):
+    __tablename__ = "stock-items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"))
+    warehouse: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"))
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class StockMovement(Base):
     __tablename__ = "stock-movements"
 

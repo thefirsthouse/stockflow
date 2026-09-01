@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_session
-from warehouse.models import Product, StockMovement, Warehouse
-from warehouse.repository import ProductRepository, WarehouseRepository
+from warehouse.models import Product, StockMovement, Warehouse, StockItem
+from warehouse.repository import ProductRepository, WarehouseRepository, StockItemRepository
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -51,3 +51,17 @@ async def get_stock_movement_by_id(
 ProductDep = Annotated[Product, Depends(get_product_by_id)]
 WarehouseDep = Annotated[Warehouse, Depends(get_warehouse_by_id)]
 StockMovementDep = Annotated[StockMovement, Depends(get_stock_movement_by_id)]
+
+
+async def get_stock_item_by_id(
+    stockitem_id: Annotated[int, Path(gt=0)],
+    db: SessionDep,
+) -> StockItem:
+    result = await db.execute(select(StockItem).where(StockItem.id == stockitem_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise not_found("Stock item not found")
+    return item
+
+
+StockItemDep = Annotated[StockItem, Depends(get_stock_item_by_id)]

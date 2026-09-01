@@ -74,3 +74,25 @@ class StockMovementReadSchema(StockMovementBaseSchema):
 
     id: int
     created_at: datetime
+
+
+class StockItemBaseSchema(BaseModel):
+    product: int = Field(..., gt=0)
+    warehouse: int = Field(..., gt=0)
+    quantity: int = Field(..., ge=0)
+
+
+class StockItemCreateSchema(StockItemBaseSchema):
+    pass
+
+
+class StockItemUpdateSchema(BaseModel):
+    product: int | None = Field(default=None, gt=0)
+    warehouse: int | None = Field(default=None, gt=0)
+    quantity: int | None = Field(default=None, ge=0)
+
+
+class StockItemReadSchema(StockItemBaseSchema):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int

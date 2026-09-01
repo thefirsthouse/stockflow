@@ -2,9 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from warehouse.dependencies import ProductDep, SessionDep, WarehouseDep
-from warehouse.repository import ProductRepository, WarehouseRepository
+from warehouse.dependencies import ProductDep, SessionDep, WarehouseDep, StockItemDep
+from warehouse.repository import ProductRepository, WarehouseRepository, StockItemRepository
 from warehouse.schemas import (
+    StockItemCreateSchema,
+    StockItemReadSchema,
+    StockItemUpdateSchema,
     ProductCreateSchema,
     ProductReadSchema,
     ProductUpdateSchema,
@@ -24,6 +27,12 @@ def get_warehouse_repository(db: SessionDep) -> WarehouseRepository:
     return WarehouseRepository(db)
 
 
+def get_stockitem_repository(db: SessionDep):
+    from warehouse.repository import StockItemRepository
+
+    return StockItemRepository(db)
+
+
 ProductRepositoryDep = Annotated[
     ProductRepository,
     Depends(get_product_repository),
@@ -31,6 +40,11 @@ ProductRepositoryDep = Annotated[
 WarehouseRepositoryDep = Annotated[
     WarehouseRepository,
     Depends(get_warehouse_repository),
+]
+
+StockItemRepositoryDep = Annotated[
+    StockItemRepository,
+    Depends(get_stockitem_repository),
 ]
 
 
@@ -157,3 +171,52 @@ async def delete_warehouse(
     repository: WarehouseRepositoryDep,
 ) -> None:
     await repository.delete(warehouse)
+
+
+# Stock items CRUD
+
+
+@warehouse_router.get("/stock-items", response_model=list[StockItemReadSchema])
+async def list_stock_items(
+    repository: StockItemRepositoryDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+):
+    return await repository.list(offset=offset, limit=limit)
+
+
+@warehouse_router.post(
+    "/stock-items",
+    response_model=StockItemReadSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_stock_item(
+    stockitem_data: StockItemCreateSchema,
+    repository: StockItemRepositoryDep,
+):
+    return await repository.create(stockitem_data)
+
+
+@warehouse_router.get("/stock-items/{stockitem_id}", response_model=StockItemReadSchema)
+async def get_stock_item(stockitem: StockItemDep):
+    return stockitem
+
+
+@warehouse_router.patch("/stock-items/{stockitem_id}", response_model=StockItemReadSchema)
+async def update_stock_item(
+    stockitem_data: StockItemUpdateSchema,
+    stockitem: StockItemDep,
+    repository: StockItemRepositoryDep,
+):
+    return await repository.update(stockitem, stockitem_data)
+
+
+@warehouse_router.delete(
+    "/stock-items/{stockitem_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_stock_item(
+    stockitem: StockItemDep,
+    repository: StockItemRepositoryDep,
+) -> None:
+    await repository.delete(stockitem)
