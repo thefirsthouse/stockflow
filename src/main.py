@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from config import settings
 from database import engine, Base
 from users.router import auth_router
+from warehouse.router import warehouse_router
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(warehouse_router)
 
 
 if __name__ == "__main__":
