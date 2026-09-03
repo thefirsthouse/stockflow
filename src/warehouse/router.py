@@ -2,8 +2,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from warehouse.dependencies import ProductDep, SessionDep, WarehouseDep, StockItemDep
+from warehouse.dependencies import ProductDep, SessionDep, StockMovementDep, WarehouseDep, StockItemDep
 from warehouse.repository import ProductRepository, WarehouseRepository, StockItemRepository
+from warehouse.repository import StockMovementRepository
 from warehouse.schemas import (
     StockItemCreateSchema,
     StockItemReadSchema,
@@ -11,6 +12,10 @@ from warehouse.schemas import (
     ProductCreateSchema,
     ProductReadSchema,
     ProductUpdateSchema,
+    StockMovementBaseSchema,
+    StockMovementCreateSchema,
+    StockMovementReadSchema,
+    StockMovementUpdateSchema,
     WarehouseCreateSchema,
     WarehouseReadSchema,
     WarehouseUpdateSchema,
@@ -33,6 +38,10 @@ def get_stockitem_repository(db: SessionDep):
     return StockItemRepository(db)
 
 
+def get_stockmovement_repository(db: SessionDep) -> StockMovementRepository:
+    return StockMovementRepository(db)
+
+
 ProductRepositoryDep = Annotated[
     ProductRepository,
     Depends(get_product_repository),
@@ -45,6 +54,11 @@ WarehouseRepositoryDep = Annotated[
 StockItemRepositoryDep = Annotated[
     StockItemRepository,
     Depends(get_stockitem_repository),
+]
+
+StockMovementRepositoryDep = Annotated[
+    StockMovementRepository,
+    Depends(get_stockmovement_repository),
 ]
 
 
@@ -220,3 +234,59 @@ async def delete_stock_item(
     repository: StockItemRepositoryDep,
 ) -> None:
     await repository.delete(stockitem)
+
+
+@warehouse_router.get(
+    "/stock-movements",
+    response_model=list[StockMovementReadSchema],
+)
+async def list_stock_movements(
+    repository: StockMovementRepositoryDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+):
+    return await repository.list(offset=offset, limit=limit)
+
+
+@warehouse_router.get(
+    "/stock-movements/{movement_id}",
+    response_model=StockMovementReadSchema,
+)
+async def get_stock_movement(movement: StockMovementDep):
+    return movement
+
+
+@warehouse_router.post(
+    "/stock-movements",
+    response_model=StockMovementReadSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_stock_movement(
+    movement_data: StockMovementCreateSchema,
+    repository: StockMovementRepositoryDep,
+):
+    return await repository.create(movement_data)
+
+
+@warehouse_router.put(
+    "/stock-movements/{movement_id}",
+    response_model=StockMovementReadSchema,
+)
+async def update_stock_movement(
+    movement: StockMovementDep,
+    movement_data: StockMovementUpdateSchema,
+    repository: StockMovementRepositoryDep,
+):
+    return await repository.update(movement, movement_data)
+
+
+@warehouse_router.delete(
+    "/stock-movements/{movement_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_stock_movement(
+    movement: StockMovementDep,
+    repository: StockMovementRepositoryDep,
+) -> None:
+    await repository.delete(movement)
+

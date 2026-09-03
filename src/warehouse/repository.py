@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from warehouse.models import Product, Warehouse, StockItem
+from warehouse.models import Product, StockMovement, Warehouse, StockItem
 from warehouse.schemas import (
     ProductCreateSchema,
     ProductUpdateSchema,
@@ -129,4 +129,52 @@ class StockItemRepository:
 
     async def delete(self, stockitem: StockItem) -> None:
         await self.db.delete(stockitem)
+        await self.db.commit()
+
+
+class StockMovementRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list(self, offset: int = 0, limit: int = 100) -> list["StockMovement"]:
+        # avoid circular import at module level
+        from warehouse.models import StockMovement
+
+        result = await self.db.execute(select(StockMovement).offset(offset).limit(limit))
+        return list(result.scalars().all())
+
+    async def get(self, movement_id: int) -> "StockMovement" | None:
+        # avoid circular import at module level
+        from warehouse.models import StockMovement
+
+        result = await self.db.execute(
+            select(StockMovement).where(StockMovement.id == movement_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, data: "StockMovementCreateSchema") -> "StockMovement":
+        # avoid circular import at module level
+        from warehouse.models import StockMovement
+        from warehouse.schemas import StockMovementCreateSchema
+
+        movement = StockMovement(**data.model_dump())
+        self.db.add(movement)
+        await self.db.commit()
+        await self.db.refresh(movement)
+        return movement
+
+    async def update(
+        self,
+        movement: "StockMovement",
+        data: "StockMovementUpdateSchema",
+    ) -> "StockMovement":
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(movement, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(movement)
+        return movement
+
+    async def delete(self, movement: "StockMovement") -> None:
+        await self.db.delete(movement)
         await self.db.commit()

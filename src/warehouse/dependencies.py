@@ -65,3 +65,23 @@ async def get_stock_item_by_id(
 
 
 StockItemDep = Annotated[StockItem, Depends(get_stock_item_by_id)]
+
+
+async def get_stock_movement_by_product_and_warehouse(
+    product_id: Annotated[int, Path(gt=0)],
+    warehouse_id: Annotated[int, Path(gt=0)],
+    db: SessionDep,
+) -> StockMovement:
+    result = await db.execute(
+        select(StockMovement).where(
+            StockMovement.product == product_id,
+            StockMovement.warehouse == warehouse_id,
+        )
+    )
+    movement = result.scalar_one_or_none()
+    if movement is None:
+        raise not_found("Stock movement not found")
+    return movement
+
+
+StockMovementDep = Annotated[StockMovement, Depends(get_stock_movement_by_product_and_warehouse)]
