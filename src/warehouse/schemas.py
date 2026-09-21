@@ -11,16 +11,25 @@ class MovementType(str, Enum):
 
 class ProductBaseSchema(BaseModel):
     sku: str = Field(..., min_length=1, max_length=100)
-    description: str | None = None
+    description: str | None = Field(default=None, min_length=1, max_length=255)
 
 
-class ProductCreateSchema(ProductBaseSchema):
-    pass
+class ProductCreateSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str | None = Field(default=None, min_length=1, max_length=255)
+    brand: str = Field(..., min_length=1, max_length=100)
+    model: str = Field(..., min_length=1, max_length=100)
+    color: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class ProductUpdateSchema(BaseModel):
-    sku: str | None = Field(default=None, min_length=1, max_length=100)
+    model_config = ConfigDict(extra="forbid")
+
     description: str | None = None
+    brand: str | None = Field(default=None, min_length=1, max_length=100)
+    model: str | None = Field(default=None, min_length=1, max_length=100)
+    color: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class ProductReadSchema(ProductBaseSchema):

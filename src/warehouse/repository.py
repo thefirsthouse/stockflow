@@ -26,8 +26,11 @@ class ProductRepository:
         result = await self.db.execute(select(Product).where(Product.sku == sku))
         return result.scalar_one_or_none()
 
-    async def create(self, data: ProductCreateSchema) -> Product:
-        product = Product(**data.model_dump())
+    async def create(self, data: ProductCreateSchema, sku: str | None = None) -> Product:
+        payload = data.model_dump(exclude={"brand", "model", "color"})
+        if sku is not None:
+            payload["sku"] = sku
+        product = Product(**payload)
         self.db.add(product)
         await self.db.commit()
         await self.db.refresh(product)
@@ -35,6 +38,8 @@ class ProductRepository:
 
     async def update(self, product: Product, data: ProductUpdateSchema) -> Product:
         for field, value in data.model_dump(exclude_unset=True).items():
+            if field in {"brand", "model", "color"}:
+                continue
             setattr(product, field, value)
 
         await self.db.commit()

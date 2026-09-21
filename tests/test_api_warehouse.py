@@ -3,19 +3,18 @@ async def test_product_crud(client):
 
     create_response = await client.post(
         "/products",
-        json={"sku": "SKU-001", "description": "Test product"},
+        json={"brand": "Apple", "model": "MacBook Pro", "color": "Silver", "description": "Test product"},
     )
     assert create_response.status_code == 201
     product = create_response.json()
     product_id = product["id"]
-    assert product["sku"] == "SKU-001"
+    assert product["sku"].startswith("APPLE-MACBOOKPRO-SILVER-")
 
-    duplicate_response = await client.post(
+    forbidden_sku_response = await client.post(
         "/products",
-        json={"sku": "SKU-001", "description": "Duplicate"},
+        json={"sku": "SKU-001", "description": "Client tried to set sku"},
     )
-    assert duplicate_response.status_code == 409
-    assert duplicate_response.json()["detail"] == "Product with this SKU already exists"
+    assert forbidden_sku_response.status_code == 422
 
     get_response = await client.get(f"/products/{product_id}")
     assert get_response.status_code == 200
@@ -23,10 +22,9 @@ async def test_product_crud(client):
 
     update_response = await client.patch(
         f"/products/{product_id}",
-        json={"sku": "SKU-002", "description": "Updated product"},
+        json={"description": "Updated product"},
     )
     assert update_response.status_code == 200
-    assert update_response.json()["sku"] == "SKU-002"
     assert update_response.json()["description"] == "Updated product"
 
     list_response = await client.get("/products", params={"offset": 0, "limit": 1})
@@ -41,10 +39,28 @@ async def test_product_crud(client):
     assert missing_response.json()["detail"] == "Product not found"
 
 
+async def test_product_generates_sku_automatically(client):
+    response = await client.post(
+        "/products",
+        json={
+            "brand": "Apple",
+            "model": "MacBook Pro",
+            "color": "Silver",
+            "description": "Laptop",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["sku"].startswith("APPLE-MACBOOKPRO-SILVER-")
+    assert payload["sku"].endswith("-" + str(payload["sku"].split("-")[-1]))
+    assert len(payload["sku"].split("-")) == 4
+
+
 async def test_product_api_validation_errors(client):
     invalid_body_response = await client.post(
         "/products",
-        json={"sku": "", "description": "Invalid product"},
+        json={"brand": "", "model": "", "description": "Invalid product"},
     )
     invalid_query_response = await client.get(
         "/products",
@@ -55,14 +71,10 @@ async def test_product_api_validation_errors(client):
     assert invalid_query_response.status_code == 422
 
 
-async def test_product_update_duplicate_sku_returns_409(client):
+async def test_product_update_sku_is_forbidden(client):
     first = await client.post(
         "/products",
-        json={"sku": "SKU-001", "description": "First"},
-    )
-    await client.post(
-        "/products",
-        json={"sku": "SKU-002", "description": "Second"},
+        json={"brand": "Dell", "model": "XPS", "description": "First"},
     )
 
     response = await client.patch(
@@ -70,8 +82,7 @@ async def test_product_update_duplicate_sku_returns_409(client):
         json={"sku": "SKU-002"},
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Product with this SKU already exists"
+    assert response.status_code == 422
 
 
 async def test_warehouse_crud(client):

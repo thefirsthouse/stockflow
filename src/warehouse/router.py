@@ -20,6 +20,7 @@ from warehouse.schemas import (
     WarehouseReadSchema,
     WarehouseUpdateSchema,
 )
+from warehouse.service import SKUGenerator
 
 warehouse_router = APIRouter(tags=["warehouse"])
 
@@ -79,15 +80,22 @@ async def list_products(
 async def create_product(
     product_data: ProductCreateSchema,
     repository: ProductRepositoryDep,
+    sku_generator: SKUGenerator = Depends(SKUGenerator),
 ):
-    existing_product = await repository.get_by_sku(product_data.sku)
+    generated_sku = sku_generator.generate_sku(
+        brand=product_data.brand,
+        model=product_data.model,
+        color=product_data.color,
+    )
+
+    existing_product = await repository.get_by_sku(generated_sku)
     if existing_product is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Product with this SKU already exists",
         )
 
-    return await repository.create(product_data)
+    return await repository.create(product_data, sku=generated_sku)
 
 
 @warehouse_router.get("/products/{product_id}", response_model=ProductReadSchema)
@@ -101,13 +109,20 @@ async def update_product(
     product: ProductDep,
     repository: ProductRepositoryDep,
 ):
-    if product_data.sku is not None and product_data.sku != product.sku:
-        existing_product = await repository.get_by_sku(product_data.sku)
-        if existing_product is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Product with this SKU already exists",
-            )
+    if product_data.brand is not None or product_data.model is not None:
+        generated_sku = SKUGenerator().generate_sku(
+            brand=(product_data.brand or product.sku.split("-")[0]),
+            model=(product_data.model or product.sku.split("-")[1]),
+            color=(product_data.color or ""),
+        )
+        if generated_sku != product.sku:
+            existing_product = await repository.get_by_sku(generated_sku)
+            if existing_product is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Product with this SKU already exists",
+                )
+            product.sku = generated_sku
 
     return await repository.update(product, product_data)
 
