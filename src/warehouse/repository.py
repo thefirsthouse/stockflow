@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from warehouse.models import Product, Warehouse, StockItem
+from warehouse.models import Product, Warehouse, StockItem, StockMovement
 from warehouse.schemas import (
     ProductCreateSchema,
     ProductUpdateSchema,
@@ -135,3 +135,49 @@ class StockItemRepository:
     async def delete(self, stockitem: StockItem) -> None:
         await self.db.delete(stockitem)
         await self.db.commit()
+
+
+class StockMovementRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create(
+        self,
+        product: int,
+        warehouse: int,
+        movement_type: str,
+        quantity: int,
+        comment: str | None = None,
+    ) -> StockMovement:
+        movement = StockMovement(
+            product=product,
+            warehouse=warehouse,
+            movement_type=movement_type,
+            quantity=quantity,
+            comment=comment or "",
+        )
+
+        self.db.add(movement)
+        await self.db.flush()
+
+        return movement
+
+    async def list(
+        self,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[StockMovement]:
+        result = await self.db.execute(
+            select(StockMovement).offset(offset).limit(limit)
+        )
+        return list(result.scalars().all()
+    )
+
+    async def get(self, movement_id: int) -> StockMovement | None:
+        result = await self.db.execute(
+            select(StockMovement).where(
+                StockMovement.id == movement_id
+            )
+        )
+
+        return result.scalar_one_or_none()

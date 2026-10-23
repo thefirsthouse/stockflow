@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base, ChoiceType
@@ -25,9 +25,25 @@ class Warehouse(Base):
 class StockItem(Base):
     __tablename__ = "stock-items"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "product",
+            "warehouse",
+            name="uq_stock_item_product_warehouse",
+        ),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    product: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"))
-    warehouse: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"))
+    product: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.id"),
+        nullable=False,
+    )
+    warehouse: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
@@ -35,13 +51,27 @@ class StockMovement(Base):
     __tablename__ = "stock-movements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    product: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"))
-    warehouse: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"))
+    product: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.id"),
+        nullable=False,
+    )
+    warehouse: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
     movement_type: Mapped[str] = mapped_column(
-        ChoiceType({"in": "IN", "out": "OUT"}), nullable=False
+        ChoiceType({"in": "IN", "out": "OUT"}),
+        nullable=False,
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.now
+        DateTime,
+        default=datetime.datetime.now,
     )
-    comment: Mapped[str] = mapped_column(String)
+    comment: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        default="",
+    )

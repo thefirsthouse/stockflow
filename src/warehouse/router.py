@@ -2,7 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from warehouse.dependencies import ProductDep, SessionDep, WarehouseDep, StockItemDep
+from warehouse.dependencies import (ProductDep,
+    SessionDep,
+    WarehouseDep,
+    StockItemDep,
+    WarehouseDep,
+)
 from warehouse.repository import ProductRepository, WarehouseRepository, StockItemRepository
 from warehouse.schemas import (
     StockItemCreateSchema,
@@ -14,8 +19,10 @@ from warehouse.schemas import (
     WarehouseCreateSchema,
     WarehouseReadSchema,
     WarehouseUpdateSchema,
+    StockMovementCreateSchema,
+    StockMovementReadSchema,
 )
-from warehouse.service import SKUGenerator
+from warehouse.service import SKUGenerator, StockMovementService
 
 warehouse_router = APIRouter(tags=["warehouse"])
 
@@ -46,6 +53,17 @@ WarehouseRepositoryDep = Annotated[
 StockItemRepositoryDep = Annotated[
     StockItemRepository,
     Depends(get_stockitem_repository),
+]
+
+def get_stock_movement_service(
+    db: SessionDep,
+) -> StockMovementService:
+    return StockMovementService(db)
+
+
+StockMovementServiceDep = Annotated[
+    StockMovementService,
+    Depends(get_stock_movement_service),
 ]
 
 
@@ -235,3 +253,14 @@ async def delete_stock_item(
     repository: StockItemRepositoryDep,
 ) -> None:
     await repository.delete(stockitem)
+
+@warehouse_router.post(
+    "/stock/movements",
+    response_model=StockMovementReadSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_stock_movement(
+    movement_data: StockMovementCreateSchema,
+    service: StockMovementServiceDep,
+):
+    return await service.create_movement(movement_data)
