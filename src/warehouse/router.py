@@ -8,7 +8,12 @@ from warehouse.dependencies import (ProductDep,
     StockItemDep,
     WarehouseDep,
 )
-from warehouse.repository import ProductRepository, WarehouseRepository, StockItemRepository
+from warehouse.repository import (
+    ProductRepository,
+    StockItemRepository,
+    StockMovementRepository,
+    WarehouseRepository,
+)
 from warehouse.schemas import (
     StockItemCreateSchema,
     StockItemReadSchema,
@@ -20,6 +25,7 @@ from warehouse.schemas import (
     WarehouseReadSchema,
     WarehouseUpdateSchema,
     StockMovementCreateSchema,
+    MovementType,
     StockMovementReadSchema,
     RemainderReadSchema,
 )
@@ -42,6 +48,10 @@ def get_stockitem_repository(db: SessionDep):
     return StockItemRepository(db)
 
 
+def get_stock_movement_repository(db: SessionDep) -> StockMovementRepository:
+    return StockMovementRepository(db)
+
+
 ProductRepositoryDep = Annotated[
     ProductRepository,
     Depends(get_product_repository),
@@ -54,6 +64,10 @@ WarehouseRepositoryDep = Annotated[
 StockItemRepositoryDep = Annotated[
     StockItemRepository,
     Depends(get_stockitem_repository),
+]
+StockMovementRepositoryDep = Annotated[
+    StockMovementRepository,
+    Depends(get_stock_movement_repository),
 ]
 
 def get_stock_movement_service(
@@ -286,3 +300,24 @@ async def create_stock_movement(
     service: StockMovementServiceDep,
 ):
     return await service.create_movement(movement_data)
+
+
+@warehouse_router.get(
+    "/stock/movements",
+    response_model=list[StockMovementReadSchema],
+)
+async def list_stock_movements(
+    repository: StockMovementRepositoryDep,
+    warehouse_id: Annotated[int | None, Query(ge=1)] = None,
+    product_id: Annotated[int | None, Query(ge=1)] = None,
+    movement_type: MovementType | None = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+):
+    return await repository.list(
+        warehouse_id=warehouse_id,
+        product_id=product_id,
+        movement_type=movement_type,
+        offset=offset,
+        limit=limit,
+    )

@@ -35,19 +35,25 @@ class ChoiceType(types.TypeDecorator):
     cache_ok = True
 
     def __init__(self, choices, **kw):
-        self.choices = dict(choices)
+        # SQLAlchemy uses constructor arguments to build a compiled-query cache
+        # key. Keep this value immutable and hashable while retaining a mapping
+        # for value conversion.
+        self.choices = tuple(choices.items())
+        self._choices = dict(self.choices)
         super().__init__(**kw)
 
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
-        if value in self.choices:
+        if value in self._choices:
             return value
         return next(
-            key for key, display_value in self.choices.items() if display_value == value
+            key
+            for key, display_value in self._choices.items()
+            if display_value == value
         )
 
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        return self.choices[value]
+        return self._choices[value]
