@@ -21,6 +21,7 @@ from warehouse.schemas import (
     WarehouseUpdateSchema,
     StockMovementCreateSchema,
     StockMovementReadSchema,
+    RemainderReadSchema,
 )
 from warehouse.service import SKUGenerator, StockMovementService
 
@@ -253,6 +254,27 @@ async def delete_stock_item(
     repository: StockItemRepositoryDep,
 ) -> None:
     await repository.delete(stockitem)
+
+
+# Remainders - Stock view with filters
+
+
+@warehouse_router.get("/remainders", response_model=list[RemainderReadSchema])
+async def list_remainders(
+    repository: StockItemRepositoryDep,
+    warehouse_id: Annotated[int | None, Query(ge=1)] = None,
+    product_id: Annotated[int | None, Query(ge=1)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+):
+    remainders = await repository.list_remainders(
+        warehouse_id=warehouse_id,
+        product_id=product_id,
+        offset=offset,
+        limit=limit,
+    )
+    return remainders
+
 
 @warehouse_router.post(
     "/stock/movements",

@@ -105,3 +105,16 @@ class StockItemReadSchema(StockItemBaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+
+class RemainderReadSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: int
+    product_sku: str
+    product_description: str | None
+    warehouse_id: int
+    warehouse_name: str
+    warehouse_location: str
+    quantity: int

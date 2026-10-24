@@ -11,23 +11,22 @@ async def test_product_repository_crud(db_session):
     repository = ProductRepository(db_session)
 
     product = await repository.create(
-        ProductCreateSchema(sku="SKU-001", description="Test product")
+        ProductCreateSchema(brand="TestBrand", model="Model1", description="Test product"),
+        sku="TESTBRAND-MODEL1-1234"
     )
 
     assert product.id is not None
-    assert product.sku == "SKU-001"
+    assert product.sku == "TESTBRAND-MODEL1-1234"
     assert await repository.get(product.id) == product
-    assert await repository.get_by_sku("SKU-001") == product
+    assert await repository.get_by_sku("TESTBRAND-MODEL1-1234") == product
     assert await repository.list() == [product]
 
     updated_product = await repository.update(
         product,
-        ProductUpdateSchema(sku="SKU-002", description="Updated product"),
+        ProductUpdateSchema(description="Updated product"),
     )
 
-    assert updated_product.sku == "SKU-002"
     assert updated_product.description == "Updated product"
-    assert await repository.get_by_sku("SKU-001") is None
 
     await repository.delete(updated_product)
 
@@ -37,9 +36,13 @@ async def test_product_repository_crud(db_session):
 
 async def test_product_repository_supports_pagination(db_session):
     repository = ProductRepository(db_session)
-    await repository.create(ProductCreateSchema(sku="SKU-001", description=None))
+    await repository.create(
+        ProductCreateSchema(brand="Brand1", model="Model1", description=None),
+        sku="BRAND1-MODEL1-1234"
+    )
     second_product = await repository.create(
-        ProductCreateSchema(sku="SKU-002", description=None)
+        ProductCreateSchema(brand="Brand2", model="Model2", description=None),
+        sku="BRAND2-MODEL2-5678"
     )
 
     assert await repository.list(offset=1, limit=1) == [second_product]
