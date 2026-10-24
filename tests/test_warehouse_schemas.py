@@ -17,18 +17,18 @@ from warehouse.schemas import (
 
 
 def test_product_schemas_validate_valid_payloads():
-    create_schema = ProductCreateSchema(sku="SKU-001", description="Test product")
+    create_schema = ProductCreateSchema(brand="TestBrand", model="TestModel", description="Test product")
     update_schema = ProductUpdateSchema(description=None)
     read_schema = ProductReadSchema(id=1, sku="SKU-001", description="Test product")
 
-    assert create_schema.sku == "SKU-001"
+    assert create_schema.brand == "TestBrand"
     assert update_schema.description is None
     assert read_schema.id == 1
 
 
 def test_product_schema_rejects_empty_sku():
     with pytest.raises(ValidationError):
-        ProductCreateSchema(sku="", description="Test product")
+        ProductCreateSchema(brand="", model="TestModel", description="Test product")
 
 
 def test_warehouse_schemas_validate_valid_payloads():

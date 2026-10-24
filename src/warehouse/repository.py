@@ -114,6 +114,54 @@ class StockItemRepository:
         result = await self.db.execute(select(StockItem).where(StockItem.id == stockitem_id))
         return result.scalar_one_or_none()
 
+    async def list_remainders(
+        self,
+        warehouse_id: int | None = None,
+        product_id: int | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[dict]:
+        query = (
+            select(
+                StockItem.id,
+                StockItem.product.label("product_id"),
+                Product.sku.label("product_sku"),
+                Product.description.label("product_description"),
+                StockItem.warehouse.label("warehouse_id"),
+                Warehouse.name.label("warehouse_name"),
+                Warehouse.location.label("warehouse_location"),
+                StockItem.quantity,
+            )
+            .join(Product, StockItem.product == Product.id)
+            .join(Warehouse, StockItem.warehouse == Warehouse.id)
+            .where(StockItem.quantity > 0)
+        )
+
+        if warehouse_id is not None:
+            query = query.where(StockItem.warehouse == warehouse_id)
+        
+        if product_id is not None:
+            query = query.where(StockItem.product == product_id)
+
+        query = query.offset(offset).limit(limit)
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        return [
+            {
+                "id": row.id,
+                "product_id": row.product_id,
+                "product_sku": row.product_sku,
+                "product_description": row.product_description,
+                "warehouse_id": row.warehouse_id,
+                "warehouse_name": row.warehouse_name,
+                "warehouse_location": row.warehouse_location,
+                "quantity": row.quantity,
+            }
+            for row in rows
+        ]
+
     async def create(self, data: "StockItemCreateSchema") -> StockItem:
         # avoid circular import at module level
         from warehouse.schemas import StockItemCreateSchema
