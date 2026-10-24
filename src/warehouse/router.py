@@ -25,6 +25,8 @@ from warehouse.schemas import (
     WarehouseReadSchema,
     WarehouseUpdateSchema,
     StockMovementCreateSchema,
+    StockTransferCreateSchema,
+    StockTransferReadSchema,
     MovementType,
     StockMovementReadSchema,
     RemainderReadSchema,
@@ -300,6 +302,18 @@ async def create_stock_movement(
     service: StockMovementServiceDep,
 ):
     return await service.create_movement(movement_data)
+
+
+@warehouse_router.post(
+    "/stock/transfers",
+    response_model=StockTransferReadSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def transfer_stock(
+    transfer_data: StockTransferCreateSchema,
+    service: StockMovementServiceDep,
+):
+    return await service.transfer_stock(transfer_data)
 
 
 @warehouse_router.get(
