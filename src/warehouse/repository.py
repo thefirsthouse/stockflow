@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from warehouse.models import Product, Warehouse, StockItem, StockMovement
@@ -241,14 +241,26 @@ class StockMovementRepository:
 
     async def list(
         self,
+        warehouse_id: int | None = None,
+        product_id: int | None = None,
+        movement_type: str | None = None,
         offset: int = 0,
         limit: int = 100,
     ) -> list[StockMovement]:
-        result = await self.db.execute(
-            select(StockMovement).offset(offset).limit(limit)
-        )
-        return list(result.scalars().all()
-    )
+        query = select(StockMovement)
+
+        if warehouse_id is not None:
+            query = query.where(StockMovement.warehouse == warehouse_id)
+        if product_id is not None:
+            query = query.where(StockMovement.product == product_id)
+        if movement_type is not None:
+            query = query.where(StockMovement.movement_type == movement_type)
+
+        query = query.order_by(
+            desc(StockMovement.created_at), desc(StockMovement.id)
+        ).offset(offset).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     async def get(self, movement_id: int) -> StockMovement | None:
         result = await self.db.execute(
