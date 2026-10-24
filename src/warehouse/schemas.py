@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class MovementType(str, Enum):
@@ -70,6 +70,20 @@ class StockMovementCreateSchema(StockMovementBaseSchema):
     pass
 
 
+class StockTransferCreateSchema(BaseModel):
+    product: int = Field(..., gt=0)
+    source_warehouse: int = Field(..., gt=0)
+    destination_warehouse: int = Field(..., gt=0)
+    quantity: int = Field(..., gt=0)
+    comment: str = ""
+
+    @model_validator(mode="after")
+    def validate_different_warehouses(self):
+        if self.source_warehouse == self.destination_warehouse:
+            raise ValueError("Source and destination warehouses must be different")
+        return self
+
+
 class StockMovementUpdateSchema(BaseModel):
     product: int | None = Field(default=None, gt=0)
     warehouse: int | None = Field(default=None, gt=0)
@@ -83,6 +97,11 @@ class StockMovementReadSchema(StockMovementBaseSchema):
 
     id: int
     created_at: datetime
+
+
+class StockTransferReadSchema(BaseModel):
+    outgoing_movement: StockMovementReadSchema
+    incoming_movement: StockMovementReadSchema
 
 
 class StockItemBaseSchema(BaseModel):

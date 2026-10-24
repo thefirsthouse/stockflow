@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from warehouse.models import Product, StockItem, StockMovement, Warehouse
-from warehouse.schemas import StockMovementCreateSchema
+from warehouse.schemas import StockMovementCreateSchema, StockTransferCreateSchema
 
 
 class SKUGenerator:
@@ -78,6 +78,63 @@ class StockMovementService:
             await self.db.flush()
 
             return movement
+
+    async def transfer_stock(
+        self,
+        data: StockTransferCreateSchema,
+    ) -> dict[str, StockMovement]:
+        async with self.db.begin():
+            product = await self._get_product(data.product)
+            source_warehouse = await self._get_warehouse(data.source_warehouse)
+            destination_warehouse = await self._get_warehouse(
+                data.destination_warehouse
+            )
+
+            source_stock = await self._get_stock_item_for_update(
+                product.id,
+                source_warehouse.id,
+            )
+            await self._handle_out(source_stock, data.quantity)
+
+            destination_stock = await self._get_stock_item_for_update(
+                product.id,
+                destination_warehouse.id,
+            )
+            await self._handle_in(
+                stock_item=destination_stock,
+                product_id=product.id,
+                warehouse_id=destination_warehouse.id,
+                quantity=data.quantity,
+            )
+
+            comment_suffix = f": {data.comment}" if data.comment else ""
+            outgoing_movement = StockMovement(
+                product=product.id,
+                warehouse=source_warehouse.id,
+                movement_type="OUT",
+                quantity=data.quantity,
+                comment=(
+                    f"Transfer to warehouse {destination_warehouse.name} "
+                    f"(ID {destination_warehouse.id}){comment_suffix}"
+                ),
+            )
+            incoming_movement = StockMovement(
+                product=product.id,
+                warehouse=destination_warehouse.id,
+                movement_type="IN",
+                quantity=data.quantity,
+                comment=(
+                    f"Transfer from warehouse {source_warehouse.name} "
+                    f"(ID {source_warehouse.id}){comment_suffix}"
+                ),
+            )
+            self.db.add_all([outgoing_movement, incoming_movement])
+            await self.db.flush()
+
+            return {
+                "outgoing_movement": outgoing_movement,
+                "incoming_movement": incoming_movement,
+            }
 
     async def _get_product(self, product_id: int) -> Product:
         result = await self.db.execute(

@@ -10,6 +10,7 @@ from warehouse.schemas import (
     ProductUpdateSchema,
     StockMovementCreateSchema,
     StockMovementReadSchema,
+    StockTransferCreateSchema,
     WarehouseCreateSchema,
     WarehouseReadSchema,
     WarehouseUpdateSchema,
@@ -75,5 +76,34 @@ def test_stock_movement_schema_rejects_invalid_values():
             product=0,
             warehouse=0,
             movement_type="transfer",
+            quantity=0,
+        )
+
+
+def test_stock_transfer_schema_validates_warehouses_and_quantity():
+    transfer = StockTransferCreateSchema(
+        product=1,
+        source_warehouse=1,
+        destination_warehouse=2,
+        quantity=5,
+    )
+
+    assert transfer.source_warehouse == 1
+    assert transfer.destination_warehouse == 2
+    assert transfer.quantity == 5
+
+    with pytest.raises(ValidationError):
+        StockTransferCreateSchema(
+            product=1,
+            source_warehouse=1,
+            destination_warehouse=1,
+            quantity=5,
+        )
+
+    with pytest.raises(ValidationError):
+        StockTransferCreateSchema(
+            product=1,
+            source_warehouse=1,
+            destination_warehouse=2,
             quantity=0,
         )
