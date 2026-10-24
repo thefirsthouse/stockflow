@@ -149,6 +149,35 @@ class StockMovementRepository:
         quantity: int,
         comment: str | None = None,
     ) -> StockMovement:
+        result = await self.db.execute(
+            select(StockItem).where(
+                StockItem.product == product,
+                StockItem.warehouse == warehouse,
+            )
+        )
+        stock_item = result.scalar_one_or_none()
+
+        if movement_type == "OUT":
+            if stock_item is None:
+                raise ValueError(
+                    f"Cannot create OUT movement: product {product} not found in warehouse {warehouse}"
+                )
+            if stock_item.quantity < quantity:
+                raise ValueError(
+                    f"Insufficient stock: available {stock_item.quantity}, requested {quantity}"
+                )
+            stock_item.quantity -= quantity
+        else:
+            if stock_item is None:
+                stock_item = StockItem(
+                    product=product,
+                    warehouse=warehouse,
+                    quantity=quantity,
+                )
+                self.db.add(stock_item)
+            else:
+                stock_item.quantity += quantity
+
         movement = StockMovement(
             product=product,
             warehouse=warehouse,
@@ -181,3 +210,151 @@ class StockMovementRepository:
         )
 
         return result.scalar_one_or_none()
+
+    async def update(
+        self,
+        movement: StockMovement,
+        product: int | None = None,
+        warehouse: int | None = None,
+        movement_type: str | None = None,
+        quantity: int | None = None,
+        comment: str | None = None,
+    ) -> StockMovement:
+        original_product = movement.product
+        original_warehouse = movement.warehouse
+        original_type = movement.movement_type
+        original_quantity = movement.quantity
+
+        new_product = product if product is not None else original_product
+        new_warehouse = warehouse if warehouse is not None else original_warehouse
+        new_type = movement_type if movement_type is not None else original_type
+        new_quantity = quantity if quantity is not None else original_quantity
+
+        same_location = (original_product == new_product and original_warehouse == new_warehouse)
+
+        if same_location:
+            result = await self.db.execute(
+                select(StockItem).where(
+                    StockItem.product == original_product,
+                    StockItem.warehouse == original_warehouse,
+                )
+            )
+            stock_item = result.scalar_one_or_none()
+
+            if stock_item:
+                net_change = 0
+                
+                if original_type == "IN":
+                    net_change -= original_quantity
+                else:
+                    net_change += original_quantity
+                
+                if new_type == "IN":
+                    net_change += new_quantity
+                else:
+                    net_change -= new_quantity
+                
+                new_stock_level = stock_item.quantity + net_change
+                
+                if new_stock_level < 0:
+                    raise ValueError(
+                        f"Insufficient stock: current {stock_item.quantity}, net change {net_change}, would result in {new_stock_level}"
+                    )
+                
+                stock_item.quantity = new_stock_level
+            else:
+                if new_type == "OUT":
+                    raise ValueError(
+                        f"Cannot update to OUT movement: product {new_product} not found in warehouse {new_warehouse}"
+                    )
+                stock_item = StockItem(
+                    product=new_product,
+                    warehouse=new_warehouse,
+                    quantity=new_quantity,
+                )
+                self.db.add(stock_item)
+        else:
+            result = await self.db.execute(
+                select(StockItem).where(
+                    StockItem.product == original_product,
+                    StockItem.warehouse == original_warehouse,
+                )
+            )
+            original_stock_item = result.scalar_one_or_none()
+
+            if original_stock_item:
+                if original_type == "IN":
+                    if original_stock_item.quantity < original_quantity:
+                        raise ValueError(
+                            f"Cannot update movement: would result in negative stock in original location"
+                        )
+                    original_stock_item.quantity -= original_quantity
+                else:
+                    original_stock_item.quantity += original_quantity
+
+            result = await self.db.execute(
+                select(StockItem).where(
+                    StockItem.product == new_product,
+                    StockItem.warehouse == new_warehouse,
+                )
+            )
+            new_stock_item = result.scalar_one_or_none()
+
+            if new_type == "OUT":
+                if new_stock_item is None:
+                    raise ValueError(
+                        f"Cannot update to OUT movement: product {new_product} not found in warehouse {new_warehouse}"
+                    )
+                if new_stock_item.quantity < new_quantity:
+                    raise ValueError(
+                        f"Insufficient stock: available {new_stock_item.quantity}, requested {new_quantity}"
+                    )
+                new_stock_item.quantity -= new_quantity
+            else:
+                if new_stock_item is None:
+                    new_stock_item = StockItem(
+                        product=new_product,
+                        warehouse=new_warehouse,
+                        quantity=new_quantity,
+                    )
+                    self.db.add(new_stock_item)
+                else:
+                    new_stock_item.quantity += new_quantity
+
+        if product is not None:
+            movement.product = product
+        if warehouse is not None:
+            movement.warehouse = warehouse
+        if movement_type is not None:
+            movement.movement_type = movement_type
+        if quantity is not None:
+            movement.quantity = quantity
+        if comment is not None:
+            movement.comment = comment
+
+        await self.db.flush()
+        return movement
+
+    async def delete(self, movement: StockMovement) -> None:
+        movement_type = movement.movement_type
+
+        result = await self.db.execute(
+            select(StockItem).where(
+                StockItem.product == movement.product,
+                StockItem.warehouse == movement.warehouse,
+            )
+        )
+        stock_item = result.scalar_one_or_none()
+
+        if stock_item:
+            if movement_type == "IN":
+                if stock_item.quantity < movement.quantity:
+                    raise ValueError(
+                        f"Cannot delete IN movement: would result in negative stock (current: {stock_item.quantity}, movement: {movement.quantity})"
+                    )
+                stock_item.quantity -= movement.quantity
+            else:
+                stock_item.quantity += movement.quantity
+
+        await self.db.delete(movement)
+        await self.db.flush()
